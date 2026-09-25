@@ -1,0 +1,9 @@
+src/
+figs/
+assets/
+paper-brief.md
+paper-slides.html
+paper-slides-final.html
+.DS_Store
+__pycache__/
+*.pyc
