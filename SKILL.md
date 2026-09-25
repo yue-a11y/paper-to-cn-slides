@@ -65,7 +65,7 @@ description: 当用户提供英文科研论文（PDF、图片或文本）并要�
 
 ## 第一步附：提取图片
 
-运行 `scripts/extract_figures.py`。脚本自动扫描 `src/` 目录下的**所有 PDF**（一份或多份均可），逐份提取 Figure 到 `figs/` 目录，文件名前缀取 PDF 的文件名 stem，用于区分来源。
+运行 `scripts/extract_figures.py`。脚本自动扫描 `src/` 目录下的**所有 PDF**（一份或多份均可），逐份提取 Figure 到 `figs/` 目录，文件名前缀取 PDF 的文件名 stem，用于区分来源。脚本运行后，会生成 figs/manifest.json。请读取该文件，优先依据其中的 caption 字段（图注）来确定真实图号，然后按 Figure 编号升序，填充 paper-brief.md 的 figures 表格。
 
 执行方式：
 
@@ -170,6 +170,7 @@ python scripts/extract_figures.py
 
 - `paper-brief.md`：结构化抽取结果 + 图片对照表
 - `figs/`：提取出的所有 Figure 原始图（PNG，作为中间产物）
+- `figs/manifest.json`：提取图片的索引元数据（包含图注、页码、来源 PDF 等，供生成 brief 时参考）
 - `assets/`：webp 版的 Figure，供 HTML 引用（最终产物）
 - `paper-slides.html`：幻灯片主文件，通过相对路径引用 `assets/`
 
