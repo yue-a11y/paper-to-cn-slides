@@ -1,6 +1,6 @@
 ---
 name: paper-to-cn-slides
-description: 当用户提供英文科研论文（PDF、图片或文本）并要求制作讲解幻灯片、汇报 PPT、组会 slides 时使用。从论文中抽取研究问题、贡献、方法、实验与局限，…把正文与补充材料（如 SI、Appendix、Supplementary 等）的所有 Figure 按原文编号顺序提取、裁剪、压缩为 webp 并保存到 assets/ 目录，HTML 通过相对路径引用，生成正文为中文、专业术语保留英文的 HTML 幻灯片（HTML + assets/ 一起分发）。
+description: 当用户提供英文科研论文（PDF、图片或文本）并要求制作讲解幻灯片、汇报 PPT、组会 slides 时使用。从论文中抽取研究问题、贡献、方法、实验与局限，…把正文与补充材料（如 SI、Appendix、Supplementary 等）的所有 Figure 按原文编号顺序提取、裁剪、压缩为 webp 并保存到 assets/ 目录，HTML 通过相对路径引用，生成正文为中文、专业术语保留英文的 HTML 幻灯片，并同步生成配套的 Word 讲解文档（HTML + assets + docx 一起分发）。
 ---
 
 # 英文论文转中文讲解幻灯片
@@ -39,9 +39,9 @@ description: 当用户提供英文科研论文（PDF、图片或文本）并要�
 严格分两阶段，不允许同一次回复输出两份文件：
 
 - **阶段一**：读取论文 → 提取图片 → 生成 `paper-brief.md` → **停下等确认**
-- **阶段二**：用户确认后 → 规划骨架 → 生成 `paper-slides.html`
+- **阶段二**：用户确认后 → 规划骨架 → **生成 `paper-slides.html`** → **对照 HTML 页面生成 `speaker-notes.md`** → **转换 `.docx` 讲稿**
 
-阶段一结束时明确询问：“brief 是否 OK？确认后我生成 slides。”
+阶段一结束时明确询问：“brief 是否 OK？确认后我生成 slides 和配套讲解文档。”
 
 用户若在阶段一就催“直接出 slides”，仍然先出 brief，并说明：brief 是后续幻灯片的事实依据，先确认可避免 HTML 返工。
 
@@ -70,7 +70,8 @@ description: 当用户提供英文科研论文（PDF、图片或文本）并要�
 执行方式：
 
 ```bash
-python scripts/extract_figures.py
+python3 scripts/extract_figures.py
+```
 
 在 `paper-brief.md` 的 `figures` 字段输出对照表：
 
@@ -96,7 +97,7 @@ python scripts/extract_figures.py
 
 判断依据：以 **Figure 编号**为准，不以 PDF 页码为准。补充材料图号可能带有 S、A、Sup 等前缀，请自动识别并按其原本的数字顺序排序，编号与页码不一致时按编号排，并在 figures 表里注明。
 
-## 第二步：确定页面骨架
+## 第二步：确定页面骨架与讲稿规划
 
 默认 **30 分钟、26–30 页**。骨架围绕图组织。
 
@@ -132,7 +133,9 @@ python scripts/extract_figures.py
 - 其他页：每页 30–60 秒
 - 页数偏多时压缩背景页，不压缩讲图页
 
-## 第三步：生成 HTML
+## 第三步：生成 HTML 与讲解文档
+
+### 3.1 生成 HTML 幻灯片
 
 - HTML 只有一份，CSS 与 JS 全部内联，不依赖外部网络资源
 - 图片**不得 base64 内嵌**，一律以相对路径引用 `assets/` 目录下的 webp 文件
@@ -152,6 +155,24 @@ python scripts/extract_figures.py
 - 提取失败的图才用占位样式，写明原因，不得自行绘制
 - 交付物是 `paper-slides.html` + `assets/` 文件夹，二者必须一起分发（HTML 不能单独发）
 
+### 3.2 生成配套讲解文档（Word）
+
+HTML 确认生成后，必须参照 `paper-slides.html` 里的页面顺序，同步产出配套的逐字讲解稿（Speaker Notes）。
+
+1. 在本地生成 `speaker-notes.md`。这份 Markdown 必须与 HTML 幻灯片的页面一一对应：
+   - **文档头部**：包含论文标题、汇报总时长、听众假设。
+   - **每一页对应一个小节**：使用 `## Slide X: [页面标题]` 作为标题。
+   - **讲解内容**：必须是口语化、适合直接朗读的讲稿（非要点式短句），每页约 150–250 字。
+   - **过渡语**：写明翻到下一页时的过渡话术。
+   - **图表重点**：指明该页若有图表，应该引导听众看哪里（如：“大家请看左下角的 Figure 2a”）。
+2. `speaker-notes.md` 确认生成后，调用项目根目录下的脚本，将其转换为 Word 文档：
+
+```bash
+python3 scripts/md2docx.py speaker-notes.md paper-speaker-notes.docx
+```
+
+*(注：如果 `scripts/md2docx.py` 不存在，请提醒用户需要先运行该脚本的生成工具，或使用 Python 的标准库 `python-docx` 动态生成)*。
+
 ## 手工修补流程
 
 1. 打开生成的 HTML，逐页检查每张图
@@ -160,7 +181,7 @@ python scripts/extract_figures.py
 4. 对 Pi 说：“`figs/xxx.png` 已更新，请重新生成 HTML”
 5. Pi 只重新编码 `assets/` 里的 webp、重生成 HTML，**不重新读 PDF、不重新抽取 brief**
 
-如果手动改 HTML 更省事，也可以直接编辑 `paper-slides.html`，但下次重新生成会覆盖。手工改到底就另存为 `paper-slides-final.html`。
+如果手动改 HTML 或讲稿更省事，也可以直接编辑 `paper-slides.html` 或 `speaker-notes.md`（生成 docx 前），但下次重新生成会覆盖。手工改到底就另存为 `paper-slides-final.html` 和 `paper-speaker-notes-final.docx`。
 
 ## 中英文处理规则
 
@@ -173,8 +194,10 @@ python scripts/extract_figures.py
 - `figs/manifest.json`：提取图片的索引元数据（包含图注、页码、来源 PDF 等，供生成 brief 时参考）
 - `assets/`：webp 版的 Figure，供 HTML 引用（最终产物）
 - `paper-slides.html`：幻灯片主文件，通过相对路径引用 `assets/`
+- `speaker-notes.md`：中间产物，逐页讲稿的 Markdown 源文件
+- `paper-speaker-notes.docx`：配套的 Word 讲解文档（最终产物）
 
-分发说明：把 `paper-slides.html` 和 `assets/` 一起打包（zip）或一起放到同一目录。直接单发 HTML 会丢图。
+分发说明：把 `paper-slides.html` + `assets/` 文件夹 + `paper-speaker-notes.docx` 一起打包（zip）或一起放到同一目录。直接单发 HTML 会丢图。
 
 ## 约束
 
@@ -186,3 +209,4 @@ python scripts/extract_figures.py
 - 论文缺少消融或局限时明确指出缺失，不略过
 - 若用户提供的是中文论文，提示本技能面向英文论文，询问是否继续
 - HTML 中不得出现 `data:image`。图片一律走 `assets/*.webp` 相对路径。生成后必须自检一次。
+- 讲稿（docx）必须按幻灯片页码分节，且必须是“口语化的逐字稿”，不能是简单的要点罗列。
